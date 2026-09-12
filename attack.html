@@ -44,6 +44,31 @@
 					<span data-translate="info_disclaimer">In case of an unexpected error, please reload the site and
 						look at the serial monitor for further debugging.</span><br>
 				</p>
+
+				<!-- ✅ НОВА СЕКЦІЯ: PCAP CONTROL -->
+				<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; margin: 20px 0; border-radius: 8px; color: white;">
+					<h2 style="margin-top: 0; margin-bottom: 15px;">📥 Handshake Capture Control</h2>
+					
+					<div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+						<p style="margin: 0 0 10px 0;"><strong>PCAP File Status:</strong></p>
+						<div id="pcap-status-inline" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.6;">
+							<span style="color: #FFD700;">Loading...</span>
+						</div>
+					</div>
+
+					<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+						<button onclick="downloadPCAP()" style="background: #4CAF50; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: all 0.3s;">
+							📥 Download PCAP File
+						</button>
+						<button onclick="showPCAPJSON()" style="background: #2196F3; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: all 0.3s;">
+							📊 View JSON Status
+						</button>
+						<button onclick="resetPCAP()" style="background: #f44336; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: all 0.3s;">
+							🔄 Reset Capture
+						</button>
+					</div>
+				</div>
+
 				<p class="right">
 					<button onclick="stopAll()" data-translate="stop">stop</button>
 					<button onclick="load()" data-translate="reload">reload</button>
@@ -108,11 +133,84 @@
 					list.<br>
 					It's unlikely you will see any impact by this attack with your home network.<br>
 				</p>
+
+				<script>
+					// Оновлення статусу PCAP кожні 2 секунди
+					function updatePCAPStatusInline() {
+						fetch('/pcap-status')
+							.then(response => response.json())
+							.then(data => {
+								const statusDiv = document.getElementById('pcap-status-inline');
+								const capturingIcon = data.capturing ? '✅' : '❌';
+								const fileSizeKB = (data.size / 1024).toFixed(2);
+								
+								statusDiv.innerHTML = `
+									${capturingIcon} Capturing: <strong>${data.capturing ? 'YES' : 'NO'}</strong><br>
+									📦 File Size: <strong>${data.size}</strong> bytes (<strong>${fileSizeKB}</strong> KB)<br>
+									📊 Frames: <strong style="color: #FFD700;">${data.frames}</strong><br>
+									💾 Free RAM: <strong>${(data.ram_used / 1024).toFixed(2)}</strong> KB
+								`;
+							})
+							.catch(err => {
+								document.getElementById('pcap-status-inline').innerHTML = '<span style="color: #FF6B6B;">❌ Error: ' + err.message + '</span>';
+							});
+					}
+
+					// Завантаження PCAP файлу
+					function downloadPCAP() {
+						console.log('Starting PCAP download...');
+						fetch('/download-pcap')
+							.then(response => {
+								if (!response.ok) throw new Error('HTTP ' + response.status);
+								return response.blob();
+							})
+							.then(blob => {
+								const url = window.URL.createObjectURL(blob);
+								const a = document.createElement('a');
+								a.href = url;
+								a.download = 'handshakes_' + new Date().getTime() + '.pcap';
+								document.body.appendChild(a);
+								a.click();
+								a.remove();
+								window.URL.revokeObjectURL(url);
+								alert('✅ PCAP file downloaded! Size: ' + (blob.size / 1024).toFixed(2) + ' KB');
+							})
+							.catch(err => alert('❌ Download failed: ' + err.message));
+					}
+
+					// Показати JSON статус в попапі
+					function showPCAPJSON() {
+						fetch('/pcap-status')
+							.then(response => response.json())
+							.then(data => {
+								const json = JSON.stringify(data, null, 2);
+								alert('📊 PCAP Status JSON:\n\n' + json + '\n\n🔗 Curl command:\ncurl http://192.168.4.1/pcap-status');
+							})
+							.catch(err => alert('❌ Error: ' + err.message));
+					}
+
+					// Скидання PCAP
+					function resetPCAP() {
+						if (confirm('🔄 Reset PCAP capture? All frames will be deleted!')) {
+							fetch('/reset-pcap')
+								.then(response => response.json())
+								.then(data => {
+									alert('✅ PCAP reset successfully!');
+									updatePCAPStatusInline();
+								})
+								.catch(err => alert('❌ Reset failed: ' + err.message));
+						}
+					}
+
+					// Запустити оновлення при завантаженні сторінки
+					updatePCAPStatusInline();
+					setInterval(updatePCAPStatusInline, 2000);
+				</script>
 			</div>
 		</div>
 	</div>
 	<footer>
-		<span id="version">Version 2.6.1</span>
+		<span id="version">Version 2.6.1 + PCAP Capture</span>
 		<br>
 		<br>
 		<a href="http://deauther.maltronics.com" target="_blank">Wiki</a> | <a href="info.html">Credits</a>
