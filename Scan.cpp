@@ -20,10 +20,9 @@ void Scan::sniffer(uint8_t* buf, uint16_t len) {
     if (len < 28) return;
 
     // Перехоплюємо EAPOL тільки коли НЕ атакуємо
-    if (!attack.isRunning()) {
-        if (isEAPOL(buf, len)) {
-            saveToPCAP(buf, len);
-        }
+    // Перехоплюємо EAPOL ЗАВЖДИ, але виключаємо при прямій атаці
+    if (isEAPOL(buf, len)) {
+        saveToPCAP(buf, len);  // ✅ Ловимо handshakes ПОСТІЙНО
     }
 
     if ((buf[12] == 0xc0) || (buf[12] == 0xa0)) {
@@ -84,9 +83,8 @@ void Scan::start(uint8_t mode, uint32_t time, uint8_t nextmode, uint32_t continu
 
     /* AP Scan */
     if ((mode == SCAN_MODE_APS) || (mode == SCAN_MODE_ALL)) {
-        // remove old results
-        accesspoints.removeAll();
-        stations.removeAll();
+        stations.removeAll();        // ✅ Видаляємо ТІЛЬКИ станції
+    // accesspoints.removeAll(); // ✅ ЗБЕРЕЖ АЮ точки доступу!
         // start AP scan
         prntln(SC_START_AP);
         WiFi.scanNetworks(true, true);
