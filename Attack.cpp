@@ -4,6 +4,11 @@
 
 #include "settings.h"
 
+// ✅ ДЕКЛАРУЄМО ЗОВНІШНІ ЗМІННІ
+extern "C" {
+    extern int wifi_get_promiscuous();
+}
+
 Attack::Attack() {
     getRandomMac(mac);
 
@@ -25,6 +30,17 @@ Attack::Attack() {
 void Attack::start() {
     stop();
     prntln(A_START);
+    
+    // ✅ ЗУПИНІТЬ AP ДЛЯ АТАК
+    wifi::stopAP();
+    delay(100);
+    
+    // Включіть промісцюітивний режим для відправки пакетів
+    wifi_promiscuous_enable(true);
+    delay(50);
+    
+    Serial.println("[Attack] Promiscuous mode enabled for raw packet transmission");
+    
     attackTime      = currentTime;
     attackStartTime = currentTime;
     accesspoints.sortAfterChannel();
@@ -56,6 +72,16 @@ void Attack::start(bool beacon, bool deauth, bool deauthAll, bool probe, bool ou
 void Attack::stop() {
     if (running) {
         running              = false;
+        
+        // ✅ ВИМКНІТЬ ПРОМІСЦЮІТИВНИЙ РЕЖИМ
+        wifi_promiscuous_enable(false);
+        delay(50);
+        
+        // Відновіть AP якщо це потрібно
+        if (settings::getWebSettings().enabled) {
+            wifi::resumeAP();
+        }
+        
         deauthPkts           = 0;
         beaconPkts           = 0;
         probePkts            = 0;
@@ -72,6 +98,8 @@ void Attack::stop() {
         deauth.active        = false;
         beacon.active        = false;
         probe.active         = false;
+        
+        Serial.println("[Attack] Attack stopped, promiscuous mode disabled");
         prntln(A_STOP);
     }
 }
@@ -426,10 +454,21 @@ bool Attack::sendPacket(uint8_t* packet, uint16_t packetSize, uint8_t ch, bool f
     // set channel
     setWifiChannel(ch, force_ch);
 
+    // ✅ DEBUG: Перевірте промісцюітивний режим перед відправкою
+    if (!wifi_get_promiscuous()) {
+        Serial.printf("[Attack] WARNING: Promiscuous mode is OFF! Packet NOT sent (size=%u, ch=%u)\n", packetSize, ch);
+        return false;
+    }
+
     // sent out packet
     bool sent = wifi_send_pkt_freedom(packet, packetSize, 0) == 0;
 
-    if (sent) ++tmpPacketRate;
+    if (sent) {
+        ++tmpPacketRate;
+        // Serial.printf("[Attack] Packet sent successfully (size=%u, rate=%u)\n", packetSize, tmpPacketRate);
+    } else {
+        Serial.printf("[Attack] ERROR: Failed to send packet (size=%u, ch=%u)\n", packetSize, ch);
+    }
 
     return sent;
 }
