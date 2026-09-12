@@ -1,6 +1,7 @@
 /* This software is licensed under the MIT License: https://github.com/spacehuhntech/esp8266_deauther */
 
 #include "Attack.h"
+#include "wifi.h"
 
 #include "settings.h"
 
