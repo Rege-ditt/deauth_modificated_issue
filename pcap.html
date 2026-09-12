@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCAP Handshake Capture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .status-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .status-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .status-value {
+            color: #667eea;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-download {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            grid-column: 1 / 3;
+        }
+        
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-download:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-reset {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+        }
+        
+        .btn-refresh {
+            background: #51cf66;
+            color: white;
+        }
+        
+        .btn-refresh:hover {
+            background: #40c057;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(81, 207, 102, 0.4);
+        }
+        
+        .info-box {
+            background: #e7f5ff;
+            border-left: 4px solid #4dabf7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 25px;
+            font-size: 13px;
+            color: #0066cc;
+            line-height: 1.6;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-capturing {
+            color: #51cf66;
+            font-weight: bold;
+        }
+        
+        .status-ready {
+            color: #ffa94d;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📡 PCAP Handshake Capture</h1>
+        
+        <div class="status-card">
+            <div class="status-item">
+                <span class="status-label">Статус:</span>
+                <span class="status-value" id="status-text">🔄 Завантаження...</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Перехоплено фреймів:</span>
+                <span class="status-value" id="frames">0</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Розмір файлу:</span>
+                <span class="status-value" id="filesize">0 B</span>
+            </div>
+            
+            <div class="status-item">
+                <span class="status-label">Вільна пам'ять:</span>
+                <span class="status-value" id="ram">-- KB</span>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+        </div>
+        
+        <div class="info-box">
+            <strong>💡 Як користуватись:</strong>
+            1. Запусти сканування мереж<br>
+            2. Вибери цільову мережу<br>
+            3. Запусти атаку (деаут)<br>
+            4. Натисни "Скачати PCAP"<br>
+            5. Використовуй файл з Hashcat/Aircrack-ng
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-refresh" onclick="updateStatus()">🔄 Оновити</button>
+            <button class="btn-reset" onclick="resetPCAP()">🗑️ Скидання</button>
+            <button class="btn-download" id="download-btn" onclick="downloadPCAP()">📥 Скачати PCAP</button>
+        </div>
+    </div>
+
+    <script>
+        const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB
+        
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function updateStatus() {
+            fetch('/pcap-status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('frames').textContent = data.frames;
+                    document.getElementById('filesize').textContent = formatBytes(data.size);
+                    document.getElementById('ram').textContent = Math.round(data.ram_used / 1024) + ' KB';
+                    
+                    // Прогресс бар
+                    const progress = Math.round((data.size / MAX_FILE_SIZE) * 100);
+                    document.getElementById('progress').style.width = progress + '%';
+                    
+                    // Статус
+                    const statusEl = document.getElementById('status-text');
+                    if (data.capturing) {
+                        statusEl.innerHTML = '<span class="status-capturing">🔴 ПЕРЕХОПЛЮЄ</span>';
+                    } else if (data.frames > 0) {
+                        statusEl.innerHTML = '<span class="status-ready">🟡 ГОТОВО (НЕ ПЕРЕХОПЛЮЄ)</span>';
+                    } else {
+                        statusEl.textContent = '⚪ ОЧІКУВАННЯ';
+                    }
+                    
+                    // Активуй кнопку скачування якщо є фрейми
+                    document.getElementById('download-btn').disabled = data.frames === 0;
+                })
+                .catch(e => console.error('Error:', e));
+        }
+        
+        function downloadPCAP() {
+            const link = document.createElement('a');
+            link.href = '/download-pcap';
+            link.download = 'handshakes_' + Date.now() + '.pcap';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function resetPCAP() {
+            if (confirm('Ти впевнений? Це видалить всі перехоплені дані!')) {
+                fetch('/reset-pcap')
+                    .then(r => r.json())
+                    .then(data => {
+                        alert('✅ ' + data.message);
+                        updateStatus();
+                    })
+                    .catch(e => alert('❌ Помилка: ' + e));
+            }
+        }
+        
+        // Оновлюй статус кожні 2 секунди
+        setInterval(updateStatus, 2000);
+        
+        // Першочергове завантаження
+        updateStatus();
+    </script>
+</body>
+</html>
