@@ -314,28 +314,18 @@ namespace wifi {
             server.send(200, str(W_JSON), attack.getStatusJSON());
         });
 
-        // ========== PCAP Web Interface ==========
-        server.on("/pcap.html", HTTP_GET, []() {
-            File file = LittleFS.open("/pcap.html", "r");
-            if (file) {
-                server.streamFile(file, "text/html");
-                file.close();
-            } else {
-                server.send(404, "text/plain", "File not found");
-            }
-        });
-
-        // ========== PCAP маршрути ==========
+        // ✅ PCAP маршрути - ПЕРЕД onNotFound!
         server.on("/download-pcap", HTTP_GET, []() {
+            Serial.println("[PCAP] Download requested...");
             File file = LittleFS.open("/handshakes.pcap", "r");
             if (!file) {
-                Serial.println("[PCAP] Error: File not found for download");
-                server.send(404, str(W_JSON), "{\"status\":\"error\",\"message\":\"PCAP file not found\"}");
+                Serial.println("[PCAP] ERROR: File not found!");
+                server.send(404, "application/json", "{\"error\":\"File not found\"}");
                 return;
             }
             
             size_t size = file.size();
-            Serial.printf("[PCAP] Downloading file, size: %u bytes\n", size);
+            Serial.printf("[PCAP] Sending file, size: %u bytes\n", size);
             
             server.sendHeader("Content-Disposition", "attachment; filename=handshakes.pcap");
             server.sendHeader("Content-Type", "application/octet-stream");
@@ -346,27 +336,30 @@ namespace wifi {
         });
 
         server.on("/pcap-status", HTTP_GET, []() {
+            Serial.println("[PCAP] Status requested...");
             size_t size = getPCAPFileSize();
-            char json[200];
-            sprintf(json, 
-                "{\"status\":\"ok\",\"capturing\":%s,\"size\":%u,\"frames\":%u,\"ram_used\":%u,\"message\":\"PCAP ready\"}",
+            char json[250];
+            snprintf(json, sizeof(json), 
+                "{\"status\":\"ok\",\"capturing\":%s,\"size\":%u,\"frames\":%u,\"ram_free\":%u,\"message\":\"PCAP ready\"}",
                 (pcap_initialized ? "true" : "false"),
                 size, 
                 eapol_count,
                 ESP.getFreeHeap()
             );
-            server.send(200, str(W_JSON), json);
+            Serial.printf("[PCAP] Status: %s\n", json);
+            server.send(200, "application/json", json);
         });
 
         server.on("/reset-pcap", HTTP_GET, []() {
+            Serial.println("[PCAP] Reset requested...");
             closePCAP();
             delay(100);
             initPCAP();
-            server.send(200, str(W_JSON), "{\"status\":\"ok\",\"message\":\"PCAP file reset\"}");
-            Serial.println("[PCAP] File has been reset!");
+            server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"PCAP file reset\"}");
+            Serial.println("[PCAP] Reset complete!");
         });
 
-        // called when the url is not defined here
+        // called when the url is not defined hereaaaaa
         // use it to load content from SPIFFS
         server.onNotFound([]() {
             if (!handleFileRead(server.uri())) {
