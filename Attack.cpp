@@ -2,13 +2,7 @@
 
 #include "Attack.h"
 #include "wifi.h"
-
 #include "settings.h"
-
-// ✅ ДЕКЛАРУЄМО ЗОВНІШНІ ЗМІННІ
-extern "C" {
-    extern int wifi_get_promiscuous();
-}
 
 Attack::Attack() {
     getRandomMac(mac);
@@ -455,21 +449,10 @@ bool Attack::sendPacket(uint8_t* packet, uint16_t packetSize, uint8_t ch, bool f
     // set channel
     setWifiChannel(ch, force_ch);
 
-    // ✅ DEBUG: Перевірте промісцюітивний режим перед відправкою
-    if (!wifi_get_promiscuous()) {
-        Serial.printf("[Attack] WARNING: Promiscuous mode is OFF! Packet NOT sent (size=%u, ch=%u)\n", packetSize, ch);
-        return false;
-    }
-
     // sent out packet
     bool sent = wifi_send_pkt_freedom(packet, packetSize, 0) == 0;
 
-    if (sent) {
-        ++tmpPacketRate;
-        // Serial.printf("[Attack] Packet sent successfully (size=%u, rate=%u)\n", packetSize, tmpPacketRate);
-    } else {
-        Serial.printf("[Attack] ERROR: Failed to send packet (size=%u, ch=%u)\n", packetSize, ch);
-    }
+    if (sent) ++tmpPacketRate;
 
     return sent;
 }
