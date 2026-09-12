@@ -377,27 +377,54 @@ namespace wifi {
 
     void stopAP() {
         if (mode == wifi_mode_t::ap) {
+            Serial.println("[WiFi] Stopping AP mode...");
+            
+            // ✅ СПОЧАТКУ зупиніть сервер і DNS
+            server.close();
+            dns.stop();
+            MDNS.end();
+            delay(50);
+            
+            // ✅ Потім вимкніть WiFi і промісцюітивний режим
             wifi_promiscuous_enable(0);
             WiFi.persistent(false);
             WiFi.disconnect(true);
             wifi_set_opmode(STATION_MODE);
+            
+            delay(100);
+            
             prntln(W_STOPPED_AP);
             mode = wifi_mode_t::st;
+            
+            Serial.println("[WiFi] AP stopped successfully");
         }
     }
 
     void resumeAP() {
         if (mode != wifi_mode_t::ap) {
+            Serial.println("[WiFi] Resuming AP mode...");
+            
             mode = wifi_mode_t::ap;
             wifi_promiscuous_enable(0);
+            delay(50);
+            
             WiFi.softAPConfig(ip, ip, netmask);
             WiFi.softAP(ap_settings.ssid, ap_settings.password, ap_settings.channel, ap_settings.hidden);
+            
+            // ✅ Повторно ініціалізуємо DNS і сервер
+            dns.setErrorReplyCode(DNSReplyCode::NoError);
+            dns.start(53, "*", ip);
+            server.begin();
+            
             prntln(W_STARTED_AP);
+            
+            Serial.println("[WiFi] AP resumed successfully");
         }
     }
 
     void update() {
-        if ((mode != wifi_mode_t::off) && !scan.isScanning()) {
+        // ✅ НОВА УМОВА: Не обробляй запити під час атаки
+        if ((mode != wifi_mode_t::off) && !scan.isScanning() && !attack.isRunning()) {
             server.handleClient();
             dns.processNextRequest();
         }
